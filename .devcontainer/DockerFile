@@ -1,0 +1,21 @@
+# Ubuntu version codename (focal, jammy)
+ARG UBUNTU_CODENAME=noble
+
+# NeuroDebian image to copy configuration from
+# http://neuro.debian.net/
+FROM neurodebian:${UBUNTU_CODENAME}-non-free AS neurodebian
+ 
+# Micromamba base image
+# https://mamba.readthedocs.io/
+# https://micromamba-docker.readthedocs.io/
+FROM mambaorg/micromamba:${UBUNTU_CODENAME}
+ARG MAMBA_DOCKERFILE_ACTIVATE=1
+#FROM continuumio/miniconda3
+
+USER ${MAMBA_USER}
+COPY environment.yml ./
+RUN micromamba install -y -n base -f environment.yml
+RUN micromamba clean -a
+#RUN conda env create -f environment.yml && conda clean -a
+#RUN echo "source activate dup-image-deleter" > ~/.bashrc
+

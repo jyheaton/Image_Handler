@@ -1,0 +1,20 @@
+{
+    "build": { "dockerfile": "Dockerfile" },
+    "containerEnv": {
+    "PICTURE_DIR": "C:\\Users\\User\\Pictures"
+},
+    "forwardPorts": [3000],
+    "mounts": [{
+    "source": "C:\\Users\\User\\Pictures", 
+    "target": "/workspaces/Pictures", 
+    "type":"bind"
+}],
+    "customizations": {
+      // Configure properties specific to VS Code.
+      "vscode": {
+        // Add the IDs of extensions you want installed when the container is created.
+        "extensions": ["charliermarsh.ruff"]
+      }
+    }
+  }
+  
