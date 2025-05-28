@@ -5,6 +5,7 @@ dependencies:
   - imagehash
   - numpy
   - pillow
+  - psycopg
   # development
   - ruff
   - ruff-lsp

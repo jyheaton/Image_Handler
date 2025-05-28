@@ -1,0 +1,29 @@
+version: '3.9'
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+      
+    volumes:
+      - type: bind
+        source: ../
+        target: /workspace
+      
+      - type: bind
+        source: ~/Pictures
+        target: /workspace/data
+    
+    command: ["sleep", "infinity"]
+      
+  postgres:
+    image: postgres:14-alpine
+    restart: always
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_PASSWORD=S3cret
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=postgres
+ 
