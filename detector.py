@@ -5,10 +5,9 @@ from PIL import Image
 import imagehash
 from typing import Union, Iterable, Generator
 import os
-import psycopg as pg
+import psycopg2 as pg
 from typing import NamedTuple
-
-
+import marimo
 
 
 class ImageRecord(NamedTuple):
@@ -20,10 +19,22 @@ class ImageRecord(NamedTuple):
 # look into using with marimo - get the table to interact with
 
 def startDb(name:str = "postgres", user:str = "postgres", host:str = "postgres", password: str = "S3cret"):
-    with pg.connect(dbname=name, user=user, host=host, password=password) as conn:
-        with conn.cursor() as cur:
-            # make table with hash for id, address (string), and tags (multi string?)
-            cur.execute("CREATE TABLE IF NOT EXISTS pics(id serial, num integer, data text)")
+    db = pg.connect(dbname=name, user=user, host=host, password=password)
+    
+    # db.autocommit = True
+    print("Database started")
+    return db
+
+def closeDb(db):
+    db.close()
+    print("Closed database connection")
+
+
+def initTable(db):
+    with db.cursor() as cur:
+        # make table with hash for id, address (string), and tags (multi string?)
+        cur.execute("CREATE TABLE IF NOT EXISTS pics(id serial, hash text, address text)")
+
 
 # get hash function
 # takes in PIL image, returns hash (str)
@@ -36,15 +47,24 @@ def getHash(image: Image.Image | None) -> str:
 
 
 # store hash in a database
-def storeHash(pic: ImageRecord) -> bool:
-    # stores hash, image path in library. returns True if there is a collision
-    # collisions mean we return True
-    pass
-
+def storeHash(pic: ImageRecord, db) -> bool:
+    # cur = db.cursor()
+    with db.cursor() as cur:
+        if not exists(pic, db):
+            # stores hash, image path in library. returns True if there is a collision
+            cur.execute(f"INSERT INTO pics (hash, address) VALUES ('{pic.hash}', '{pic.path}')")
+            db.commit()
+            print("Added to db")
+        else:
+            print("Duplicate detected, skipping")
+ 
 # check if file exists
-def checkExists(path: str) -> bool:
+def exists(pic: ImageRecord, db) -> bool:
     # checks if file exists in db already and returns True if so
-    pass
+    with db.cursor() as cur:
+        cur.execute(f"SELECT EXISTS(SELECT * FROM pics WHERE address='{pic.path}' AND hash='{pic.hash}')")
+        return cur.fetchone()[0]
+
 
 
 # goes through all files in the database and confirms their paths exist/are correct
@@ -61,16 +81,12 @@ def openFile(path: str) -> Image.Image | None:
         return None
     
 
-
-
-def write_to_database(item: ImageRecord) -> None:
-    pass
-
 def iter_image_paths(root_dir: str | os.PathLike, *, exts: set[str] | None = None) -> Iterable[str | os.PathLike]:
     for dirpath, dirnames, filenames in os.walk(root_dir):
         for filename in filenames:
             if not exts or filename.endswith(exts):
                 yield os.path.join(dirpath, filename)
+
 
 # TODO: look into iter tools and iter tools.slice
 def iter_images(paths: Iterable[str | os.PathLike]) -> Iterable[str]:
@@ -84,14 +100,21 @@ def iter_records(paths: Iterable[str], hashes: Iterable[str]) -> Iterable[ImageR
 
 
 def main(root_dir: str | os.PathLike):
-    paths = iter_image_paths(root_dir, exts=(".jpg", ".png"))
-    hashes =  iter_images(paths)
-    records = iter_records(paths, hashes)
+    try:
+        paths = iter_image_paths(root_dir, exts=endings)
+        hashes =  iter_images(paths)
+        records = iter_records(paths, hashes)
+        db = startDb()
+        initTable(db) # makes table if it doesn't exist
+        for c, record in enumerate(records, start=1):
+            print(f"\nImage #{c}: {record}")
+            storeHash(record, db)
 
-    for c, record in enumerate(records, start=1):
-        print(f"Image #{c}: {record}")
-        storeHash(record)
+    except Exception as e:
+        print(e)
 
+    finally:
+        closeDb(db)
 
 # goes through all images in the path (recursively) and adds to database
 def orgFiles(dir: str, database) -> None:
@@ -122,9 +145,22 @@ def orgFiles(dir: str, database) -> None:
     # if collision, record paths under dictionary with hashes -> dict = {['hash']=['img1.jpg', 'img2.png']}
     
 
-if __name__ == "__main__":
-    # make r so \ doesn't escape
+# __generated_with = "0.13.6"
+# app = marimo.App(width="medium")
+
+# @app.cell
+# def _():
+#     # if __name__ == "__main__":
+#     # make r so \ doesn't escape
     
+#     endings = ('.jpg', '.png')
+#     dir = r"/workspace/data/3x3"
+#     main(dir)
+#     #orgFiles(dir, None)
+#     return
+
+if __name__ == "__main__":
+    # app.run()
     endings = ('.jpg', '.png')
     dir = r"/workspace/data/3x3"
     main(dir)
