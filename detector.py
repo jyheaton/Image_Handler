@@ -66,6 +66,10 @@ def exists(pic: ImageRecord, db) -> bool:
         return cur.fetchone()[0]
 
 
+def findDuplicates(db):
+    with db.cursor() as cur:
+        cur.execute("SELECT hash, count(*) FROM pics GROUP BY hash HAVING count(*)>1")
+        return cur.fetchall()
 
 # goes through all files in the database and confirms their paths exist/are correct
 # does not add to database, only deletes from database
@@ -91,24 +95,27 @@ def iter_image_paths(root_dir: str | os.PathLike, *, exts: set[str] | None = Non
 # TODO: look into iter tools and iter tools.slice
 def iter_images(paths: Iterable[str | os.PathLike]) -> Iterable[str]:
     for path in paths:
-        yield getHash(openFile(path))
+        yield ImageRecord(path, getHash(openFile(path)))
 
 
-def iter_records(paths: Iterable[str], hashes: Iterable[str]) -> Iterable[ImageRecord]:
-    for path, hash in zip(paths, hashes):
-        yield ImageRecord(path, hash)
+# def iter_records(paths: Iterable[str], hashes: Iterable[str]) -> Iterable[ImageRecord]:
+#     # accessing the path generator consumes a hash generator item - why you only get half
+#     for path, hash in zip(paths, hashes):
+#         print(path, hash)
+#         #yield ImageRecord(path, hash)
 
 
 def main(root_dir: str | os.PathLike):
     try:
         paths = iter_image_paths(root_dir, exts=endings)
-        hashes =  iter_images(paths)
-        records = iter_records(paths, hashes)
+        records =  iter_images(paths)        
         db = startDb()
         initTable(db) # makes table if it doesn't exist
         for c, record in enumerate(records, start=1):
             print(f"\nImage #{c}: {record}")
             storeHash(record, db)
+
+        findDuplicates(db)
 
     except Exception as e:
         print(e)
